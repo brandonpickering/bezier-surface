@@ -10,7 +10,6 @@
 
 
 static std::vector<std::vector<vec3f>> object_patches;
-
 static std::vector<std::pair<vec3f, float>> rotations;
 
 
@@ -31,15 +30,25 @@ static vec3f bezier_interp(const vec3f *ctrls, float u, float v) {
 }
 
 
+static vec3f send_gl(vec3f v) {
+  glColor3f((float) rand()/RAND_MAX, (float) rand()/RAND_MAX, (float) rand()/RAND_MAX);
+  glVertex3f(v.x, v.y, v.z);
+}
+
 static vec3f draw_patch(const std::vector<vec3f> &patch) {
-  for (float v = 0; v <= 1.1f; v += 0.1f) {
-    glBegin(GL_TRIANGLES);
-    for (float u = 0; u <= 1.1f; u += 0.1f) {
-      vec3f p = bezier_interp(patch.data(), u, v);
-      glColor3f(v, u, 1-v);
-      glVertex3f(p.x, p.y, p.z);
+  const vec3f *ctrls = patch.data();
+  for (float u0 = 0; u0 < 1; u0 += 0.1f) {
+    for (float v0 = 0; v0 < 1; v0 += 0.1f) {
+      float u1 = std::min(u0 + 0.1f, 1.0f);
+      float v1 = std::min(v0 + 0.1f, 1.0f);
+
+      glBegin(GL_TRIANGLE_STRIP);
+      send_gl(bezier_interp(ctrls, u0, v0));
+      send_gl(bezier_interp(ctrls, u1, v0));
+      send_gl(bezier_interp(ctrls, u0, v1));
+      send_gl(bezier_interp(ctrls, u1, v1));
+      glEnd();
     }
-    glEnd();
   }
 }
 
@@ -54,32 +63,7 @@ static void render() {
   glClearColor(0, 0, 0, 0);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  glBegin(GL_TRIANGLES);
-
-  glColor3f(1, 0, 0);
-  glVertex3f(-1, -1, 1);
-  glVertex3f(1, -1, 1);
-  glVertex3f(0, 1, 0);
-
-  glColor3f(0, 1, 0);
-  glVertex3f(1, -1, 1);
-  glVertex3f(1, -1, -1);
-  glVertex3f(0, 1, 0);
-
-  glColor3f(0, 0, 1);
-  glVertex3f(1, -1, -1);
-  glVertex3f(-1, -1, -1);
-  glVertex3f(0, 1, 0);
-
-  glColor3f(1, 0, 1);
-  glVertex3f(-1, -1, -1);
-  glVertex3f(-1, -1, 1);
-  glVertex3f(0, 1, 0);
-
-  glEnd();
-
-  return;
-
+  srand(0);
   for (const std::vector<vec3f> &patch : object_patches)
     draw_patch(patch);
 }
@@ -157,9 +141,13 @@ int main(int argc, char *argv[]) {
   glfwSetKeyCallback(window, key_callback);
 
   glfwMakeContextCurrent(window);
+  glfwSwapInterval(0);
 
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
+
+  double time = glfwGetTime();
+  int frames = 0;
 
   while (!glfwWindowShouldClose(window)) {
     int win_width, win_height;
@@ -175,6 +163,15 @@ int main(int argc, char *argv[]) {
 
     glfwSwapBuffers(window);
     glfwPollEvents();
+
+    ++frames;
+    double elapsed = glfwGetTime() - time;
+    if (elapsed >= 1) {
+      std::string title = stringf("as3 - %d fps", (int) (frames / elapsed));
+      glfwSetWindowTitle(window, title.c_str());
+      frames = 0;
+      time = glfwGetTime();
+    }
   }
 
   return 0;
