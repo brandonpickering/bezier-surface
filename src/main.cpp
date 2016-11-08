@@ -5,15 +5,43 @@
 #include "common.hpp"
 
 
+static vec3f bezier_interp(vec3f *ctrls, float u) {
+  vec3f p1 = (1-u) * ctrls[0] + u * ctrls[1];
+  vec3f p2 = (1-u) * ctrls[1] + u * ctrls[2];
+  vec3f p3 = (1-u) * ctrls[2] + u * ctrls[3];
+  vec3f p12 = (1-u) * p1 + u * p2;
+  vec3f p23 = (1-u) * p2 + u * p3;
+  return (1-u) * p12 + u * p23;
+}
+
+static vec3f bezier_interp(vec3f *ctrls, float u, float v) {
+  vec3f ctrls1[4];
+  for (int i = 0; i < 4; ++i)
+    ctrls1[i] = bezier_interp(ctrls + 4*i, u);
+  return bezier_interp(ctrls1, v);
+}
+
+
 static void render() {
   glClearColor(0, 0, 0, 0);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  glBegin(GL_TRIANGLES);
-  glVertex3f(-1, -1, 0);
-  glVertex3f(1, -1, 0);
-  glVertex3f(0, 1, 0);
-  glEnd();
+  vec3f ctrls[16] = {
+    { -2, -3, 0 }, { -1, -1, 0 }, { 1, -1, 0 }, { 2, -3, 0 },
+    { -2, -2, 0 }, { -1, 0, 0 }, { 1, 0, 0 }, { 2, -2, 0 },
+    { -2, 0, 0 }, { -1, 1, 0 }, { 1, 1, 0 }, { 2, 0, 0 },
+    { -2, 3, 0 }, { -1, 2, 0 }, { 1, 2, 0 }, { 2, 3, 0 },
+  };
+
+  for (float v = 0; v <= 1.1f; v += 0.1f) {
+    glBegin(GL_LINE_STRIP);
+    for (float u = 0; u <= 1.1f; u += 0.1f) {
+      vec3f p = bezier_interp(&ctrls[0], u, v);
+      glColor3f(v, u, 1-v);
+      glVertex3f(p.x, p.y, p.z);
+    }
+    glEnd();
+  }
 }
 
 
