@@ -1,8 +1,11 @@
 #include <cstdio>
+#include <iostream>
+#include <string>
 
 #include <GLFW/glfw3.h>
 
 #include "common.hpp"
+#include "parse.hpp"
 
 
 static vec3f bezier_interp(vec3f *ctrls, float u) {
@@ -45,6 +48,18 @@ static void render() {
 }
 
 
+static void load_object(std::string filename, std::istream &is) {
+  std::vector<std::vector<vec3f>> patches = read_bezier(filename, is);
+  for (std::vector<vec3f> &patch : patches) {
+    for (size_t i = 0; i < 16; ++i) {
+      printf("(%.2f %.2f %.2f) ", patch[i].x, patch[i].y, patch[i].z);
+      if (i % 4 == 3) printf("\n");
+    }
+    printf("\n");
+  }
+}
+
+
 static void key_callback(GLFWwindow *window, int key, int scancode,
                           int action, int mods) {
   if (action == GLFW_RELEASE) return;
@@ -65,6 +80,8 @@ static void key_callback(GLFWwindow *window, int key, int scancode,
 
 
 int main(int argc, char *argv[]) {
+  load_object("stdin", std::cin);
+
   glfwInit();
 
   GLFWwindow *window = glfwCreateWindow(400, 400, "as3", NULL, NULL);

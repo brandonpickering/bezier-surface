@@ -19,7 +19,10 @@ std::string stringf(const char *format, T... args) {
 
 
 struct vec3f {
-  float x, y, z;
+  union {
+    float data[3];
+    struct { float x, y, z; };
+  };
 };
 
 vec3f vec(float x, float y, float z);
