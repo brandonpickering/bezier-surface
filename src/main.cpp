@@ -10,46 +10,104 @@
 
 
 static std::vector<std::vector<vec3f>> object_patches;
+
 static std::vector<std::pair<vec3f, float>> rotations;
-
-
-static vec3f bezier_interp(const vec3f *ctrls, float u) {
-  vec3f p1 = (1-u) * ctrls[0] + u * ctrls[1];
-  vec3f p2 = (1-u) * ctrls[1] + u * ctrls[2];
-  vec3f p3 = (1-u) * ctrls[2] + u * ctrls[3];
-  vec3f p12 = (1-u) * p1 + u * p2;
-  vec3f p23 = (1-u) * p2 + u * p3;
-  return (1-u) * p12 + u * p23;
-}
-
-static vec3f bezier_interp(const vec3f *ctrls, float u, float v) {
-  vec3f ctrls1[4];
-  for (int i = 0; i < 4; ++i)
-    ctrls1[i] = bezier_interp(ctrls + 4*i, u);
-  return bezier_interp(ctrls1, v);
-}
+static vec3f translate;
+static float zoom = 1;
 
 
 static vec3f send_gl(vec3f v) {
-  glColor3f((float) rand()/RAND_MAX, (float) rand()/RAND_MAX, (float) rand()/RAND_MAX);
   glVertex3f(v.x, v.y, v.z);
 }
 
-static vec3f draw_patch(const std::vector<vec3f> &patch) {
-  const vec3f *ctrls = patch.data();
-  for (float u0 = 0; u0 < 1; u0 += 0.1f) {
-    for (float v0 = 0; v0 < 1; v0 += 0.1f) {
-      float u1 = std::min(u0 + 0.1f, 1.0f);
-      float v1 = std::min(v0 + 0.1f, 1.0f);
+static void render_uw(const std::vector<vec3f> &patch, float step) {
+  glColor3f(0, 0, 0);
+  for (float u0 = 0; u0 < 1.0f; u0 += step) {
+    for (float v0 = 0; v0 < 1.0f; v0 += step) {
+      float u1 = std::min(u0 + step, 1.0f);
+      float v1 = std::min(v0 + step, 1.0f);
 
-      glBegin(GL_TRIANGLE_STRIP);
-      send_gl(bezier_interp(ctrls, u0, v0));
-      send_gl(bezier_interp(ctrls, u1, v0));
-      send_gl(bezier_interp(ctrls, u0, v1));
-      send_gl(bezier_interp(ctrls, u1, v1));
+      glBegin(GL_LINE_LOOP);
+      send_gl(bezier_interp(patch.data(), u0, v0));
+      send_gl(bezier_interp(patch.data(), u1, v0));
+      send_gl(bezier_interp(patch.data(), u1, v1));
+      send_gl(bezier_interp(patch.data(), u0, v1));
       glEnd();
     }
   }
+}
+
+static void render_ad(const vec3f *ctrls, float tolerance,
+                                              float u0, float v0,
+                                              float u1, float v1,
+                                              float u2, float v2) {
+  float cs[][2] = { {u0,v0}, {u1,v1}, {u2,v2} };
+  float ms[][2] = {
+    {(u1+u2)/2, (v1+v2)/2},
+    {(u0+u2)/2, (v0+v2)/2},
+    {(u0+u1)/2, (v0+v1)/2},
+  };
+  vec3f vs[] = {
+    bezier_interp(ctrls, u0, v0),
+    bezier_interp(ctrls, u1, v1),
+    bezier_interp(ctrls, u2, v2),
+  };
+  bool good[3];
+  int ngood = 0;
+
+  for (int i = 0; i < 3; ++i) {
+    vec3f tv = bezier_interp(ctrls, ms[i][0], ms[i][1]);
+    vec3f lv = 0.5f * (vs[(i+1)%3] + vs[(i+2)%3]);
+
+    good[i] = magnitude(tv - lv) <= tolerance;
+    if (good[i]) ngood += 1;
+  }
+
+  if (ngood == 2) {
+    int i = !good[0] ? 0 : !good[1] ? 1 : 2;
+    render_ad(ctrls, tolerance, cs[i][0], cs[i][1],
+                                cs[(i+1)%3][0], cs[(i+1)%3][1],
+                                ms[i][0], ms[i][1]);
+    render_ad(ctrls, tolerance, cs[i][0], cs[i][1],
+                                cs[(i+2)%3][0], cs[(i+2)%3][1],
+                                ms[i][0], ms[i][1]);
+
+  } else if (ngood == 1) {
+    int i = good[0] ? 0 : good[1] ? 1 : 2;
+    render_ad(ctrls, tolerance, cs[(i+1)%3][0], cs[(i+1)%3][1],
+                                cs[(i+2)%3][0], cs[(i+2)%3][1],
+                                ms[(i+1)%3][0], ms[(i+1)%3][1]);
+    render_ad(ctrls, tolerance, cs[(i+1)%3][0], cs[(i+1)%3][1],
+                                ms[(i+1)%3][0], ms[(i+1)%3][1],
+                                ms[(i+2)%3][0], ms[(i+2)%3][1]);
+    render_ad(ctrls, tolerance, ms[(i+1)%3][0], ms[(i+1)%3][1],
+                                ms[(i+2)%3][0], ms[(i+2)%3][1],
+                                cs[i][0], cs[i][1]);
+
+  } else if (ngood == 0) {
+    for (int i = 0; i < 3; ++i) {
+      render_ad(ctrls, tolerance, cs[i][0], cs[i][1],
+                                  ms[(i+1)%3][0], ms[(i+1)%3][1],
+                                  ms[(i+2)%3][0], ms[(i+2)%3][1]);
+    }
+    render_ad(ctrls, tolerance, ms[0][0], ms[0][1],
+                                ms[1][0], ms[1][1],
+                                ms[2][0], ms[2][1]);
+
+  } else {
+    glColor3f((float) rand() / RAND_MAX, (float) rand() / RAND_MAX, (float) rand() / RAND_MAX);
+    glBegin(GL_TRIANGLES);
+    send_gl(bezier_interp(ctrls, u0, v0));
+    send_gl(bezier_interp(ctrls, u1, v1));
+    send_gl(bezier_interp(ctrls, u2, v2));
+    glEnd();
+  }
+}
+
+static void render_ad(const std::vector<vec3f> &patch, float tolerance) {
+  glColor3f(0, 0, 0);
+  render_ad(patch.data(), tolerance, 0,0, 1,0, 0,1);
+  render_ad(patch.data(), tolerance, 1,0, 0,1, 1,1);
 }
 
 
@@ -60,12 +118,12 @@ static void render() {
     glRotatef(pair.second, pair.first.x, pair.first.y, pair.first.z);
   }
 
-  glClearColor(0, 0, 0, 0);
+  glClearColor(1, 1, 1, 0);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   srand(0);
   for (const std::vector<vec3f> &patch : object_patches)
-    draw_patch(patch);
+    render_ad(patch, 0.01f);
 }
 
 
@@ -79,6 +137,8 @@ static void key_callback(GLFWwindow *window, int key, int scancode,
   if (action == GLFW_RELEASE) return;
 
   const float rot_amt = 10;
+  const float trans_amt = 0.3f;
+  const float zoom_scale = 1.1f;
 
   switch (key) {
     case GLFW_KEY_ESCAPE:
@@ -88,6 +148,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode,
 
     case GLFW_KEY_RIGHT:
       if (mods & GLFW_MOD_SHIFT) {
+        translate.x += trans_amt;
       } else {
         rotations.push_back({{0, 1, 0}, -rot_amt});
       }
@@ -95,6 +156,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode,
 
     case GLFW_KEY_LEFT:
       if (mods & GLFW_MOD_SHIFT) {
+        translate.x -= trans_amt;
       } else {
         rotations.push_back({{0, 1, 0}, rot_amt});
       }
@@ -102,6 +164,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode,
 
     case GLFW_KEY_UP:
       if (mods & GLFW_MOD_SHIFT) {
+        translate.y += trans_amt;
       } else {
         rotations.push_back({{1, 0, 0}, rot_amt});
       }
@@ -109,9 +172,18 @@ static void key_callback(GLFWwindow *window, int key, int scancode,
 
     case GLFW_KEY_DOWN:
       if (mods & GLFW_MOD_SHIFT) {
+        translate.y -= trans_amt;
       } else {
         rotations.push_back({{1, 0, 0}, -rot_amt});
       }
+      break;
+
+    case GLFW_KEY_EQUAL:
+      zoom *= zoom_scale;
+      break;
+
+    case GLFW_KEY_MINUS:
+      zoom /= zoom_scale;
       break;
 
     default: break;
@@ -156,7 +228,9 @@ int main(int argc, char *argv[]) {
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(-3.5, 3.5, -3.5, 3.5, 5, -5);
+    float view = 3.5 / zoom;
+    glOrtho(-view, view, -view, view, 5, -5);
+    glTranslatef(translate.x, translate.y, translate.z);
     glMatrixMode(GL_MODELVIEW);
 
     render();
