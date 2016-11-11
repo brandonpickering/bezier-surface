@@ -11,9 +11,10 @@
 #include "parse.hpp"
 #include "render.hpp"
 
+static bool wireframe = false;
+static bool smooth_shade = true;
 
 static std::vector<std::vector<vec3f>> object_patches;
-static bool wireframe = false;
 static bool adaptive = false;
 static float parameter = 0.1f;
 
@@ -33,7 +34,7 @@ static void render() {
   glClearColor(1, 1, 1, 0);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  render_object(object_patches, adaptive, wireframe, parameter);
+  render_object(object_patches, adaptive, parameter);
 }
 
 
@@ -115,6 +116,16 @@ static void key_callback(GLFWwindow *window, int key, int scancode,
 
     case GLFW_KEY_MINUS:
       zoom /= zoom_scale;
+      break;
+
+    case GLFW_KEY_S:
+      smooth_shade = !smooth_shade;
+      glShadeModel(smooth_shade ? GL_SMOOTH : GL_FLAT);
+      break;
+
+    case GLFW_KEY_W:
+      wireframe = !wireframe;
+      glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
       break;
 
     default: break;
