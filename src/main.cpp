@@ -1,4 +1,6 @@
 #include <cstdio>
+#include <cstring>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <utility>
@@ -11,6 +13,9 @@
 
 
 static std::vector<std::vector<vec3f>> object_patches;
+static bool wireframe = false;
+static bool adaptive = false;
+static float parameter = 0.1f;
 
 static std::vector<std::pair<vec3f, float>> rotations;
 static vec3f translate;
@@ -28,13 +33,33 @@ static void render() {
   glClearColor(1, 1, 1, 0);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  srand(0);
-  render_object(object_patches, true, false, 0.1f);
+  render_object(object_patches, adaptive, wireframe, parameter);
 }
 
 
-static void load_object(std::string filename, std::istream &is) {
-  object_patches = read_bezier(filename, is);
+static void load_args(int argc, char *argv[]) {
+  const char *filename = NULL;
+
+  for (int i = 1; i < argc; ++i) {
+    if (strcmp(argv[i], "-a") == 0) {
+      adaptive = true;
+
+    } else if ('0' <= argv[i][0] && argv[i][0] <= '9' || argv[i][0] == '.' ||
+                argv[i][0] == '-') {
+      parameter = (float) strtod(argv[i], NULL);
+
+    } else {
+      filename = argv[i];
+    }
+  }
+
+  if (filename == NULL) {
+    object_patches = read_bezier("stdin", std::cin);
+  } else {
+    std::ifstream is;
+    is.open(argv[1]);
+    object_patches = read_bezier(argv[1], is);
+  }
 }
 
 
@@ -98,7 +123,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode,
 
 
 int main(int argc, char *argv[]) {
-  load_object("stdin", std::cin);
+  load_args(argc, argv);
 
   glfwInit();
 
@@ -106,14 +131,14 @@ int main(int argc, char *argv[]) {
   if (!window) {
     fprintf(stderr, "Failed to create window\n");
     glfwTerminate();
-    return -1;
+    return 1;
   }
 
   const GLFWvidmode *mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
   if (!mode) {
     fprintf(stderr, "Failed to get video mode\n");
     glfwTerminate();
-    return -1;
+    return 1;
   }
 
   glfwSetKeyCallback(window, key_callback);

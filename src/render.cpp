@@ -123,6 +123,7 @@ void render_ad(const std::vector<vec3f> &patch, bool wireframe,
 
 void render_object(const std::vector<std::vector<vec3f>> &patches,
                     bool adaptive, bool wireframe, float parameter) {
+  srand(0);
   for (const std::vector<vec3f> &patch : patches) {
     if (adaptive)
       render_ad(patch, wireframe, parameter);
