@@ -7,6 +7,7 @@ cmake_minimum_required(VERSION 2.8)
 set(APPLICATION_SOURCE
     main.cpp
     parse.cpp
+    render.cpp
 )
 
 #-------------------------------------------------------------------------------
