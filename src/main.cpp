@@ -12,7 +12,7 @@
 #include "render.hpp"
 
 static bool wireframe = false;
-static bool smooth_shade = true;
+bool smooth_shade = true;
 
 static std::vector<std::vector<vec3f>> object_patches;
 static bool adaptive = false;
@@ -25,6 +25,9 @@ static float zoom = 1;
 
 static void render() {
   glLoadIdentity();
+  float pos[] = {3, 1, -4, 1};
+  glLightfv(GL_LIGHT0, GL_POSITION, &pos[0]);
+
   glTranslatef(translate.x, translate.y, translate.z);
   for (int i = rotations.size() - 1; i >= 0; --i) {
     std::pair<vec3f, float> pair = rotations[i];
@@ -126,6 +129,10 @@ static void key_callback(GLFWwindow *window, int key, int scancode,
     case GLFW_KEY_W:
       wireframe = !wireframe;
       glPolygonMode(GL_FRONT_AND_BACK, wireframe ? GL_LINE : GL_FILL);
+      if (wireframe)
+        glDisable(GL_LIGHTING);
+      else
+        glEnable(GL_LIGHTING);
       break;
 
     default: break;
@@ -159,6 +166,9 @@ int main(int argc, char *argv[]) {
 
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
+
+  glEnable(GL_LIGHTING);
+  glEnable(GL_LIGHT0);
 
   double time = glfwGetTime();
   int frames = 0;
