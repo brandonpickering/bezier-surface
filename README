@@ -1,0 +1,11 @@
+Brandon Pickering
+Unix
+cs184-abq
+
+To build:
+  mkdir build
+  cd build
+  cmake ..
+  make
+
+Images are found in the images/ directory
